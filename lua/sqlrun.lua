@@ -158,7 +158,15 @@ function SqlRun.setup(config)
   vim.api.nvim_create_user_command("SqlRun", function()
     SqlRun.connection = nil
     -- Load databases connection params
-    local databases = vim.fn.json_decode(util.lines_from(vim.fn.expand(SqlRun.config.hosts_path))) or {}
+    local config_file = vim.fn.getcwd() .. '/.sqlrun.nvim.json'
+    if not vim.fn.filereadable(config_file) then
+      config_file = vim.fn.expand(SqlRun.config.hosts_path)
+      if not vim.fn.filereadable(config_file) then
+        vim.api.nvim_err_writeln("File not found: " .. config_file)
+        return
+      end
+    end
+    local databases = vim.fn.json_decode(util.lines_from(config_file)) or {}
     local connections = {}
     for k, _ in pairs(databases) do
         table.insert(connections, k)

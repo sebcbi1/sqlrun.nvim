@@ -1,5 +1,10 @@
 local M = {}
 
+local binaries = {
+  mysql = "mysql",
+  postgresql = "psql"
+}
+
 local password_field = {
   mysql = "MYSQL_PWD",
   postgresql = "PGPASSWORD",
@@ -84,9 +89,9 @@ end
 ---@return string string The formatted query
 function M.format_query(query_str, db_type)
   if string.lower(db_type) == "postgresql" then
-    query_str = string.format("\\timing on \n%s", query_str)      -- show timing of queries
-    query_str = string.format("\\pset border 2 \n%s", query_str)  -- show pretty lines outside the table
-    query_str = string.format("\\set QUIET 1 \n%s", query_str)    -- no console output for the following commands
+    -- query_str = string.format("\\timing on \n%s", query_str)      -- show timing of queries
+    -- query_str = string.format("\\pset border 2 \n%s", query_str)  -- show pretty lines outside the table
+    -- query_str = string.format("\\set QUIET 1 \n%s", query_str)    -- no console output for the following commands
   elseif string.lower(db_type) == "mysql" then
     query_str = string.format("set profiling=1;\n%s", query_str)  -- Doesn't seem to work :\
   else
@@ -110,17 +115,26 @@ end
 ---@param user string The database user name
 ---@param password string The database password
 ---@param db_name string The database name
----@param binary string The database binary to execute a database command
 ---@param ssh boolean If true the ssh command will be used
 ---@param db_type string The database type. postgresql and mysql supported
 ---@param ssh_tunnel table Params to run query through a ssh tunnel. `jump_host` Bastion server. `remote_host` Actual server where DB is located
 ---@return table table A table including the CLI command and the database name
-function M.get_connection_string(server, port, user, password, db_name, binary, ssh, db_type, ssh_tunnel)
+function M.get_connection_string(server, port, user, password, db_name, ssh, db_type, ssh_tunnel)
+
+  local connection_string = ""
+
+  local binary = "usql"
+  if vim.fn.executable(binary) == 1 then
+    connection_string = string.format("%s \"%s://%s:%s@%s:%s/%s\"", binary, db_type, user, password, server, port,db_name) .. " --set=SHOW_HOST_INFORMATION=false -f \"%s\""
+    print(connection_string)
+    return { command = connection_string, database = db_name, db_type = db_type }
+  end
+
   if db_type ~= "postgresql" and db_type ~= "mysql" then
     error(string.format("Specified database type %s not implemented. Please use 'postgresql' or 'mysql'", db_type))
   end
 
-  local db_command_pattern = binary
+  local db_command_pattern = binaries[db_type]
   if password and password ~= "" then
     db_command_pattern = string.format("%s=%s %s", password_field[db_type], password, db_command_pattern)
   end
@@ -161,7 +175,6 @@ function M.get_connection_string(server, port, user, password, db_name, binary, 
     db_name = M.select_value("\nSelect a database", data)
   end
 
-  local connection_string = ""
   if ssh then
     connection_string = "cat \"%s\" | " .. string.format("ssh %s %s %s %s %s", server, db_command_pattern, database_option[db_type], query_options[db_type], db_name)
   else

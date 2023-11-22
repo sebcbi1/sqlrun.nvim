@@ -181,7 +181,7 @@ function SqlRun.setup(config)
       local ssh_tunnel = databases[client].ssh_tunnel
 
       SqlRun.connection = util.get_connection_string(
-        server, port, user, password, database, binary, ssh, db_type, ssh_tunnel)
+        server, port, user, password, database, ssh, db_type, ssh_tunnel)
       if SqlRun.connection["command"] ~= "" then
         SqlRun.client = client
         SqlRun.database = SqlRun.connection["database"]
